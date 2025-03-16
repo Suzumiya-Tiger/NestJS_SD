@@ -18,7 +18,6 @@ let AppController = class AppController {
         this.appService = appService;
     }
     getHello() {
-        debugger;
         return this.appService.getHello();
     }
 };
