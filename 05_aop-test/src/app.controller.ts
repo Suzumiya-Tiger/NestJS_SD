@@ -1,8 +1,21 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Query,
+  UseFilters,
+  UseGuards,
+  UseInterceptors,
+  UsePipes,
+} from '@nestjs/common';
 import { AppService } from './app.service';
 import { LoginGuard } from './login.guard';
+import { TimeInterceptor } from './time.interceptor';
+import { ValidatePipe } from './validate.pipe';
+import { TestFilter } from './test.filter';
 
 @Controller()
+// @UseInterceptors(TimeInterceptor)
+@UsePipes(ValidatePipe)
 export class AppController {
   constructor(private readonly appService: AppService) {}
 
@@ -22,9 +35,18 @@ export class AppController {
   }
 
   @Get('bbb')
+  @UseInterceptors(TimeInterceptor)
   bbb(): string {
     console.log('bbbhandler...');
 
     return 'bbb';
+  }
+
+  @Get('ccc')
+  @UseFilters(TestFilter)
+  ccc(@Query('num', ValidatePipe) num: number) {
+    console.log('ccc handler...');
+
+    return num + 1;
   }
 }

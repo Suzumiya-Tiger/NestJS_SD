@@ -12,7 +12,7 @@ const app_controller_1 = require("./app.controller");
 const app_service_1 = require("./app.service");
 const log_middleware_1 = require("./log.middleware");
 const core_1 = require("@nestjs/core");
-const login_guard_1 = require("./login.guard");
+const time_interceptor_1 = require("./time.interceptor");
 let AppModule = class AppModule {
     configure(consumer) {
         consumer.apply(log_middleware_1.LogMiddleware).forRoutes('*');
@@ -26,8 +26,8 @@ exports.AppModule = AppModule = __decorate([
         providers: [
             app_service_1.AppService,
             {
-                provide: core_1.APP_GUARD,
-                useClass: login_guard_1.LoginGuard,
+                provide: core_1.APP_INTERCEPTOR,
+                useClass: time_interceptor_1.TimeInterceptor,
             },
         ],
     })

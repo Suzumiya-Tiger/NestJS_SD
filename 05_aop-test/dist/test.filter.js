@@ -6,20 +6,19 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.TimeInterceptor = void 0;
+exports.TestFilter = void 0;
 const common_1 = require("@nestjs/common");
-const rxjs_1 = require("rxjs");
-let TimeInterceptor = class TimeInterceptor {
-    intercept(context, next) {
-        const startTime = Date.now();
-        console.log('before interceptor', context.getClass(), context.getHandler());
-        return next.handle().pipe((0, rxjs_1.tap)(() => {
-            console.log('time', Date.now() - startTime);
-        }));
+let TestFilter = class TestFilter {
+    catch(exception, host) {
+        const response = host.switchToHttp().getResponse();
+        response.status(400).json({
+            statusCode: 400,
+            message: 'Bad Request' + exception.message,
+        });
     }
 };
-exports.TimeInterceptor = TimeInterceptor;
-exports.TimeInterceptor = TimeInterceptor = __decorate([
-    (0, common_1.Injectable)()
-], TimeInterceptor);
-//# sourceMappingURL=time.interceptor.js.map
+exports.TestFilter = TestFilter;
+exports.TestFilter = TestFilter = __decorate([
+    (0, common_1.Catch)(common_1.BadRequestException)
+], TestFilter);
+//# sourceMappingURL=test.filter.js.map

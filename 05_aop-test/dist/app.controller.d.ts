@@ -5,4 +5,5 @@ export declare class AppController {
     getHello(): string;
     aaa(): string;
     bbb(): string;
+    ccc(num: number): number;
 }

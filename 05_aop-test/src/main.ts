@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { NextFunction, Request, Response } from 'express';
+import { TimeInterceptor } from './time.interceptor';
 // import { LoginGuard } from './login.guard';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -10,7 +11,7 @@ async function bootstrap() {
     next();
     console.log('after', req.url);
   });
-
+  app.useGlobalInterceptors(new TimeInterceptor());
   // app.useGlobalGuards(new LoginGuard());
   await app.listen(process.env.PORT ?? 3000);
 }
