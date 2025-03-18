@@ -14,6 +14,12 @@ export class LoginGuard implements CanActivate {
   canActivate(
     context: ExecutionContext,
   ): boolean | Promise<boolean> | Observable<boolean> {
+    const request = context.switchToHttp().getRequest();
+    // 获取class和handler的信息
+    const controller = request.controller;
+    const handler = request.handler;
+    console.log('controller', controller);
+    console.log('handler', handler);
     console.log('login check', this.appService.getHello());
 
     return false;
