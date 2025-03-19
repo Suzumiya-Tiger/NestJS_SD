@@ -1,0 +1,3 @@
+[submodule "05_aop-test"]
+	path = 05_aop-test
+	url = ./05_aop-test

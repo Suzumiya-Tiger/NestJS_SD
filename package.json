@@ -1,0 +1,9 @@
+{
+  "name": "nestjs-study-projects",
+  "version": "1.0.0",
+  "private": true,
+  "description": "NestJS学习项目集合，使用Git Submodules管理子项目",
+  "scripts": {
+    "update-all": "git submodule update --remote --merge"
+  }
+} 
