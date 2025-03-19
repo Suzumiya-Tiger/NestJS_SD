@@ -1,3 +1,18 @@
 [submodule "05_aop-test"]
 	path = 05_aop-test
 	url = ./05_aop-test
+[submodule "01_http_transport_method"]
+	path = 01_http_transport_method
+	url = ./01_http_transport_method
+[submodule "02_nest_ioc"]
+	path = 02_nest_ioc
+	url = ./02_nest_ioc
+[submodule "03_debug_test"]
+	path = 03_debug_test
+	url = ./03_debug_test
+[submodule "04_custom-provider"]
+	path = 04_custom-provider
+	url = ./04_custom-provider
+[submodule "06_all-decorator"]
+	path = 06_all-decorator
+	url = ./06_all-decorator
