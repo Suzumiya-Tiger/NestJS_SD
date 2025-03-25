@@ -16,3 +16,9 @@
 [submodule "06_all-decorator"]
 	path = 06_all-decorator
 	url = ./06_all-decorator
+[submodule "10_middleware-test"]
+	path = 10_middleware-test
+	url = ./10_middleware-test
+[submodule "12_pipe-test"]
+	path = 12_pipe-test
+	url = ./12_pipe-test
