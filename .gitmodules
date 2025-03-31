@@ -25,3 +25,24 @@
 [submodule "11_interceptor-test"]
 	path = 11_interceptor-test
 	url = ./11_interceptor-test
+[submodule "13_exception-filter-test"]
+	path = 13_exception-filter-test
+	url = ./13_exception-filter-test
+[submodule "15_nest-multer-upload"]
+	path = 15_nest-multer-upload
+	url = ./15_nest-multer-upload
+[submodule "07_custom-decorator"]
+	path = 07_custom-decorator
+	url = ./07_custom-decorator
+[submodule "08_argument-host"]
+	path = 08_argument-host
+	url = ./08_argument-host
+[submodule "09_dynamic-module"]
+	path = 09_dynamic-module
+	url = ./09_dynamic-module
+[submodule "14_version-test"]
+	path = 14_version-test
+	url = ./14_version-test
+[submodule "16_express-mutler-test"]
+	path = 16_express-mutler-test
+	url = ./16_express-mutler-test

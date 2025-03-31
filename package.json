@@ -5,5 +5,10 @@
   "description": "NestJS学习项目集合，使用Git Submodules管理子项目",
   "scripts": {
     "update-all": "git submodule update --remote --merge"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "multer": "1.4.5-lts.2"
   }
-} 
+}
