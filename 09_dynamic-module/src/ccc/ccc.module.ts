@@ -1,0 +1,10 @@
+import { Module } from '@nestjs/common';
+import { CccController } from './ccc.controller';
+import {
+  ConfigurableModuleClass,
+  MODULE_OPTIONS_TOKEN,
+} from './ccc.module-definition';
+@Module({
+  controllers: [CccController],
+})
+export class CccModule extends ConfigurableModuleClass {}
