@@ -9,6 +9,7 @@ import {
   UseInterceptors,
   BadRequestException,
   UploadedFile,
+  Query,
 } from '@nestjs/common';
 import { BookService } from './book.service';
 import { CreateBookDto } from './dto/create-book.dto';
@@ -21,8 +22,8 @@ export class BookController {
   constructor(private readonly bookService: BookService) {}
 
   @Get('list')
-  list() {
-    return this.bookService.list();
+  async list(@Query('name') name: string) {
+    return this.bookService.list(name);
   }
 
   @Get(':id')
@@ -32,12 +33,23 @@ export class BookController {
 
   @Post('create')
   create(@Body() createBookDto: CreateBookDto) {
+    // 创建时关联上传的封面
     return this.bookService.create(createBookDto);
   }
 
-  @Put('update')
-  update(@Body() updateBookDto: UpdateBookDto) {
-    return this.bookService.update(updateBookDto);
+  @Put('update/:id')
+  update(
+    @Param('id') id: string,
+    @Body() updateData: Omit<UpdateBookDto, 'id'>,
+  ) {
+    // 创建包含 id 的完整 UpdateBookDto
+    const updateBookDto: UpdateBookDto = {
+      id: +id,
+      ...updateData,
+    };
+
+    // 更新时关联上传的封面
+    return this.bookService.update(+id, updateBookDto);
   }
   @Post('upload')
   @UseInterceptors(
@@ -58,24 +70,18 @@ export class BookController {
       },
     }),
   )
-  async uplodaFile(
-    @UploadedFile() file: Express.Multer.File,
-    @Body() body: { id: string },
-  ) {
-    const foundBook = (await this.bookService.findById(
-      +body.id,
-    )) as UpdateBookDto;
-    if (foundBook) {
-      foundBook.cover = file.path;
-      await this.bookService.update(foundBook);
-      return {
-        url: file.path,
-        message: foundBook.name + '上传封面成功',
-      };
+  uploadFile(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('请选择要上传的图片');
     }
+
+    // 生成文件路径，这时文件已经保存到服务器
+    const coverPath = `/my-uploads/${path.basename(file.path)}`;
+
+    // 只返回上传路径，不做任何关联操作
     return {
-      url: '',
-      message: '请先创建书籍',
+      url: coverPath,
+      message: '图片已上传成功',
     };
   }
   @Delete('delete/:id')

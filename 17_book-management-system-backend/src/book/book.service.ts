@@ -15,8 +15,15 @@ function randomNum() {
 export class BookService {
   @Inject()
   private dbService: DbService;
-  async list() {
+  async list(name?: string) {
     const books = (await this.dbService.read()) as Book[];
+    if (name) {
+      const filterBooks = books.filter((book) => book.name.includes(name));
+      if (filterBooks.length) {
+        return filterBooks;
+      }
+      throw new NotFoundException('图书不存在');
+    }
     return books;
   }
 
@@ -44,9 +51,11 @@ export class BookService {
     return book;
   }
 
-  async update(updateBookDto: UpdateBookDto) {
+  async update(id: number, updateBookDto: UpdateBookDto) {
     const books = (await this.dbService.read()) as Book[];
-    const foundBook = books.find((book) => book.id === updateBookDto.id);
+    const foundBook = books.find((book) => book.id === id);
+    console.log('foundBook', foundBook);
+
     if (!foundBook) {
       throw new NotFoundException('图书不存在');
     }

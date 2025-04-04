@@ -14,24 +14,17 @@
     "cover": "dd.png"
   },
   {
-    "id": 899488,
-    "name": "明朝那些事儿332",
-    "author": "当年明月",
-    "description": "zhudi",
-    "cover": "dd.png"
-  },
-  {
-    "id": 78871,
-    "name": "明朝那些事儿3132",
-    "author": "当年明月",
-    "description": "zhudi",
-    "cover": "dd.png"
-  },
-  {
     "id": 557959,
     "name": "明朝那些事儿313aa2",
     "author": "当年明月",
     "description": "zhudi",
-    "cover": "/Users/heinrichhu/前端项目/NestJS_SD/17_book-management-system-backend/my-uploads/file-1743696876085-489962185-pexels-pixabay-159839.jpg"
+    "cover": "/my-uploads/file-1743767486967-837134392-pexels-pixabay-159839.jpg"
+  },
+  {
+    "id": 468592,
+    "name": "测试",
+    "author": "1212",
+    "description": "1212",
+    "cover": "/my-uploads/file-1743781853709-625053626-pexels-pixabay-159839.jpg"
   }
 ]
