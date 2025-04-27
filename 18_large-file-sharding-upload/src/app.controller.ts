@@ -1,5 +1,13 @@
-import { Controller, Get } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  UploadedFiles,
+  UseInterceptors,
+  Body,
+} from '@nestjs/common';
 import { AppService } from './app.service';
+import { FilesInterceptor } from '@nestjs/platform-express';
 
 @Controller()
 export class AppController {
@@ -10,8 +18,16 @@ export class AppController {
     return this.appService.getHello();
   }
   @Post('upload')
-  @UseInterceptors(FilesInterceptor('files',20,{
-    dest:'uploads'
-  }))
-  uploadFiles(@UploadedFiles() files:Array<Express.Multer.File>,@Body body)
+  @UseInterceptors(
+    FilesInterceptor('files', 20, {
+      dest: 'uploads',
+    }),
+  )
+  uploadFiles(
+    @UploadedFiles() files: Array<Express.Multer.File>,
+    @Body() body,
+  ) {
+    console.log('body', body);
+    console.log('files', files);
+  }
 }
