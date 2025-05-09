@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>腾讯云COS前端上传示例</title>
+  <script src="https://unpkg.com/axios@1.6.5/dist/axios.min.js"></script>
+  <!-- 使用官方推荐的CDN链接 -->
+  <script src="https://unpkg.com/cos-js-sdk-v5/dist/cos-js-sdk-v5.min.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 20px;
+    }
+
+    #fileInput {
+      margin-bottom: 15px;
+    }
+
+    #uploadStatus {
+      margin-top: 10px;
+    }
+
+    #previewImage {
+      max-width: 300px;
+      max-height: 300px;
+      margin-top: 15px;
+      border: 1px solid #ccc;
+    }
+  </style>
+</head>
+
+<body>
+  <h2>腾讯云COS 文件上传</h2>
+  <input id="fileInput" type="file" />
+  <div id="uploadStatus"></div>
+  <img id="previewImage" src="#" alt="上传预览" style="display:none;" />
+
+  <script>
+    // 确保全局变量已定义
+    if (typeof COS === 'undefined') {
+      document.getElementById('uploadStatus').textContent = 'COS SDK加载失败，请刷新页面';
+      console.error('COS SDK未加载');
+    } else {
+      const fileInput = document.getElementById('fileInput');
+      const uploadStatus = document.getElementById('uploadStatus');
+      const previewImage = document.getElementById('previewImage');
+
+      // 从服务器获取临时密钥
+      async function getCosCredentials() {
+        try {
+          const response = await axios.post('/api/get-cos-credentials');
+          if (response.data && response.data.credentials) {
+            console.log('获取到的临时密钥信息:', response.data);
+            return response.data;
+          } else {
+            throw new Error('获取临时密钥失败: 响应数据格式不正确');
+          }
+        } catch (error) {
+          console.error('获取临时密钥出错:', error);
+          uploadStatus.textContent = '获取临时密钥失败: ' + (error.response?.data?.message || error.message);
+          throw error;
+        }
+      }
+
+      fileInput.onchange = async () => {
+        const file = fileInput.files[0];
+        if (!file) {
+          uploadStatus.textContent = '请选择文件';
+          return;
+        }
+
+        uploadStatus.textContent = '准备上传...';
+        previewImage.style.display = 'none';
+
+        try {
+          // 获取临时密钥
+          const cosAuthData = await getCosCredentials();
+
+          const bucketName = cosAuthData.bucket;
+          const regionName = cosAuthData.region;
+
+          if (!bucketName || !regionName) {
+            uploadStatus.textContent = '错误：后端未提供Bucket或Region信息。';
+            return;
+          }
+
+          // 初始化COS实例
+          const cos = new COS({
+            // 必选参数
+            getAuthorization: function (options, callback) {
+              callback({
+                TmpSecretId: cosAuthData.credentials.tmpSecretId,
+                TmpSecretKey: cosAuthData.credentials.tmpSecretKey,
+                SecurityToken: cosAuthData.credentials.sessionToken,
+                // 建议返回服务器时间作为签名的开始时间，避免用户浏览器本地时间偏差过大导致签名错误
+                StartTime: cosAuthData.startTime, // 时间戳，单位秒，如：1580000000
+                ExpiredTime: cosAuthData.expiredTime, // 时间戳，单位秒，如：1580000900
+              });
+            }
+          });
+
+          uploadStatus.textContent = '正在上传: ' + file.name;
+
+          // 执行上传操作
+          cos.putObject({
+            Bucket: bucketName,
+            Region: regionName,
+            Key: file.name,
+            Body: file,
+            onProgress: function (progressData) {
+              const percent = parseInt(progressData.percent * 100, 10);
+              uploadStatus.textContent = `上传中: ${file.name} (${percent}%)`;
+              console.log('上传进度:', JSON.stringify(progressData));
+            }
+          }, function (err, data) {
+            if (err) {
+              console.error('上传失败:', err);
+              uploadStatus.textContent = '上传失败: ' + (err.message || JSON.stringify(err));
+            } else {
+              console.log('上传成功:', data);
+              uploadStatus.textContent = '上传成功!';
+
+              const imageUrl = `https://${bucketName}.cos.${regionName}.myqcloud.com/${encodeURIComponent(file.name)}`;
+              previewImage.src = imageUrl;
+              previewImage.style.display = 'block';
+              alert('上传成功！图片URL: ' + imageUrl);
+            }
+          });
+        } catch (error) {
+          uploadStatus.textContent = '上传过程中发生错误。';
+          console.error('上传处理错误:', error);
+        }
+      };
+    }
+  </script>
+</body>
+
+</html>
