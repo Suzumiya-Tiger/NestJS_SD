@@ -142,4 +142,4 @@ pnpm run start:dev
 | 15_nest-multer-upload | □ | | |
 | 16_express-mutler-test | □ | | |
 
-祝你在 NestJS 的学习之旅中收获满满！ 
+希望你喜欢我的学习笔记，祝你在 NestJS 的学习之旅中收获满满！ 
