@@ -1,10 +1,9 @@
 import { Button, Card, Form, Input, message, Popconfirm } from 'antd';
 import './index.css';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { deleteBook, list } from '../../interfaces';
 import { CreateBookModal } from './CreateBookModal';
 import { UpdateBookModal } from './UpdateBookModal';
-
 
 interface Book {
   id: number
@@ -13,10 +12,21 @@ interface Book {
   description: string
   cover: string
 }
+
+// 自定义刷新Hook
+function useRefresh() {
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const refresh = useCallback(() => {
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
+  return { refreshTrigger, refresh };
+}
+
 export default function BookManage() {
   const [bookList, setBookList] = useState<Book[]>([])
   const [searchParams, setSearchParams] = useState<string>()
-  const [num, setNum] = useState<number>(0)
+  const { refreshTrigger, refresh } = useRefresh();
+
   async function fetchData() {
     try {
       const data = await list(searchParams)
@@ -25,15 +35,15 @@ export default function BookManage() {
       }
     } catch (error) {
       console.log('error', error);
-
     }
   }
+
   async function handleDelete(id: number) {
     try {
       const res = await deleteBook(id)
       if (res.status === 200 || res.status === 201) {
         message.success('删除成功')
-        setNum(Math.random())
+        refresh() // 使用refresh函数
       }
     } catch (error) {
       console.log('error', error)
@@ -42,7 +52,7 @@ export default function BookManage() {
 
   useEffect(() => {
     fetchData()
-  }, [searchParams, num])
+  }, [searchParams, refreshTrigger]) // 依赖refreshTrigger
 
   async function searchBook(values: { name: string }) {
     setSearchParams(values.name)
@@ -51,8 +61,8 @@ export default function BookManage() {
   const [isUpdateBookModalOpen, setIsUpdateBookModalOpen] = useState(false)
   const [updateId, setUpdateId] = useState<number>(0)
   return <div id='bookManage'>
-    <CreateBookModal isOpen={isCreateBookModalOpen} handleClose={() => { setIsCreateBookModalOpen(false); setNum(Math.random()) }} />
-    <UpdateBookModal isOpen={isUpdateBookModalOpen} handleClose={() => { setIsUpdateBookModalOpen(false); setNum(Math.random()) }} id={updateId} />
+    <CreateBookModal isOpen={isCreateBookModalOpen} handleClose={() => { setIsCreateBookModalOpen(false); refresh() }} />
+    <UpdateBookModal isOpen={isUpdateBookModalOpen} handleClose={() => { setIsUpdateBookModalOpen(false); refresh() }} id={updateId} />
     <h1>图书管理系统</h1>
     <div className="content">
       <div className="book-search">

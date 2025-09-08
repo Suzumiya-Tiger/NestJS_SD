@@ -7,7 +7,6 @@ import {
 } from '@nestjs/common';
 import { Response, Request } from 'express';
 import { AppService } from './app.service';
-// ... existing code ...
 @Catch()
 export class HelloFilter<T extends HttpException> implements ExceptionFilter {
   @Inject(AppService)
@@ -28,6 +27,4 @@ export class HelloFilter<T extends HttpException> implements ExceptionFilter {
       appService: this.appService.getHello(),
     });
   }
-
-  // ... existing code ...
 }

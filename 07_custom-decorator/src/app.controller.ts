@@ -16,8 +16,9 @@ import { MyQuery } from './decorators/query.decorator';
 import { GetClassCto } from './decorators/getClass.decorator';
 
 @GetClassCto('eee', 'heinrich')
+// @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {}
+  constructor(private readonly appService: AppService) { }
 
   @Get()
   @SetMetadata('aaa', 'admin')

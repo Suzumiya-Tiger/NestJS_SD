@@ -343,9 +343,8 @@ export class AppModule implements NestModule {
 
 除了使用APP_GUARD，你还可以通过以下方式注册全局守卫：
 
+**这两种方式有什么区别？**
 
-
-这两种方式有什么区别？
 只要仔细观察就会发现,main.ts中的LoginGuard()是new出来的，这意味着其不受IOC容器的存储和控制。
 
 但是用provide的形式声明的Guard则在IOC容器的里面，可以注入别的provider:
@@ -430,6 +429,241 @@ ExecutionContext提供了以下常用方法：
 
 在您目前的实现中，守卫始终返回false，这意味着所有请求都会被拒绝。通常，您需要基于请求中的信息（如认证令牌、会话等）做出判断。
 
+## 路由守卫
+
+### 全局路由守卫
+
+```typescript
+// main.ts 中注册
+app.useGlobalGuards(new LoginGuard());
+
+// 或者在 app.module.ts 中注册
+{
+  provide: APP_GUARD,
+  useClass: LoginGuard,
+}
+```
+
+**作用范围**：整个应用的**所有路由**都会被守卫保护
+
+```typescript
+// 所有这些路由都会经过 LoginGuard 检查
+GET /          ← 会被守卫
+GET /aaa       ← 会被守卫  
+GET /bbb       ← 会被守卫
+GET /ccc       ← 会被守卫
+```
+
+### **局部路由守卫**
+
+```typescript
+@Get('aaa')
+@UseGuards(LoginGuard)  // 只保护这个路由
+aaa(): string {
+  return 'aaa';
+}
+```
+
+**作用范围**：只保护**指定的路由**
+
+```typescript
+GET /          ← 不会被守卫
+GET /aaa       ← 会被守卫（因为显式声明了）
+GET /bbb       ← 不会被守卫  
+GET /ccc       ← 不会被守卫
+```
+
+## 实际测试对比
+
+### **开启全局守卫时**
+
+```typescript
+// 假设 LoginGuard 检查请求头中的 auth 字段
+class LoginGuard {
+  canActivate(context: ExecutionContext): boolean {
+    const request = context.switchToHttp().getRequest();
+    return request.headers.auth === 'valid';
+  }
+}
+```
+
+**访问结果**：
+
+```bash
+# 所有路由都需要认证
+curl http://localhost:3000/          # 403 Forbidden
+curl http://localhost:3000/aaa       # 403 Forbidden  
+curl http://localhost:3000/bbb       # 403 Forbidden
+
+# 带认证头才能访问
+curl -H "auth: valid" http://localhost:3000/     # 200 OK
+curl -H "auth: valid" http://localhost:3000/aaa  # 200 OK
+```
+
+### **关闭全局守卫，只用局部守卫时**
+
+```typescript
+// 当前你的配置：只有 /aaa 路由有 @UseGuards(LoginGuard)
+```
+
+**访问结果**：
+
+```bash
+# 大部分路由可以自由访问
+curl http://localhost:3000/          # 200 OK (无需认证)
+curl http://localhost:3000/bbb       # 200 OK (无需认证)
+curl http://localhost:3000/ccc       # 200 OK (无需认证)
+
+# 只有 /aaa 需要认证
+curl http://localhost:3000/aaa       # 403 Forbidden
+curl -H "auth: valid" http://localhost:3000/aaa  # 200 OK
+```
+
+## 使用场景对比
+
+### **全局守卫适用场景**
+
+```typescript
+// 适合需要全局认证的应用
+✅ 后台管理系统（所有页面都需要登录）
+✅ API 系统（所有接口都需要 token）
+✅ 企业内部系统
+
+// 例外情况可以用装饰器跳过
+@Get('public-info')
+@Public()  // 跳过全局守卫
+getPublicInfo() {
+  return 'This is public';
+}
+```
+
+### **局部守卫适用场景**
+
+```typescript
+// 适合有公开内容的应用
+✅ 博客网站（部分内容需要登录）
+✅ 电商网站（商品浏览公开，购买需登录）
+✅ 社交媒体（部分功能需要认证）
+
+@Get('posts')        // 公开访问
+getPosts() { }
+
+@Get('my-posts')     // 需要认证
+@UseGuards(LoginGuard)
+getMyPosts() { }
+```
+
+## 执行顺序和优先级
+
+### **同时存在时的执行顺序**
+
+```typescript
+请求 → 全局守卫 → 控制器级守卫 → 方法级守卫 → 路由处理器
+```
+
+### **实际组合效果**
+
+```typescript
+// 如果同时开启全局和局部守卫
+{
+  provide: APP_GUARD,
+  useClass: GlobalAuthGuard,  // 全局认证
+}
+
+@Get('admin')
+@UseGuards(AdminGuard)  // 管理员权限检查
+adminPanel() {
+  return 'Admin only';
+}
+
+// 访问 /admin 需要：
+// 1. 通过 GlobalAuthGuard（基础认证）
+// 2. 通过 AdminGuard（管理员权限）
+// 两个都通过才能访问
+```
+
+## 总结
+
+**全局守卫**：
+
+- 范围广，保护整个应用
+- 适合需要统一认证的场景
+- 配置一次，全局生效
+
+**局部守卫**：
+
+- 范围小，精确控制
+- 适合细粒度权限控制
+- 灵活性更高，按需配置
+
+你当前的配置（关闭全局守卫）意味着只有 `/aaa` 路由受保护，其他路由都可以自由访问。这种配置适合对外开放的 API，只对特定敏感接口进行保护。
+
+### 关键区别：依赖注入支持
+
+#### **第一种方式（main.ts）- 不支持依赖注入**
+
+```typescript
+// main.ts
+app.useGlobalGuards(new LoginGuard()); // ❌ 手动 new，无法注入依赖
+```
+
+**问题**：
+
+- 手动 `new LoginGuard()` 创建实例
+- **绕过了 NestJS 的 IoC 容器**
+- 无法注入任何服务
+
+```typescript
+// login.guard.ts
+@Injectable()
+export class LoginGuard implements CanActivate {
+  constructor(
+    private appService: AppService,  // ❌ 这里会报错！无法注入
+  ) {}
+  
+  canActivate(context: ExecutionContext): boolean {
+    // this.appService 是 undefined
+    return this.appService.validateUser(); // ❌ 运行时错误
+  }
+}
+```
+
+#### **第二种方式（app.module.ts）- 支持依赖注入**
+
+```typescript
+// app.module.ts
+@Module({
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: LoginGuard,  // ✅ 通过 IoC 容器创建，支持依赖注入
+    },
+  ],
+})
+export class AppModule {}
+```
+
+**优势**：
+
+- 由 NestJS IoC 容器管理
+- **自动解析和注入依赖**
+
+```typescript
+// login.guard.ts
+@Injectable()
+export class LoginGuard implements CanActivate {
+  constructor(
+    private appService: AppService,  // ✅ 可以正常注入
+  ) {}
+  
+  canActivate(context: ExecutionContext): boolean {
+    // this.appService 可以正常使用
+    return this.appService.validateUser(); // ✅ 正常工作
+  }
+}
+```
+
 ## Interceptor
 
 这个也是一个拦截器，但是和Guard的区别在于，它既可以在Controller方法前面加入逻辑，也可以在Controller方法后面加入逻辑。
@@ -482,7 +716,7 @@ export class TimeInterceptor implements NestInterceptor {
 }
 ```
 
-![image-20250317201957461](/Users/heinrichhu/前端项目/NestJS_SD/05_aop-test/assets/image-20250317201957461.png)
+![image-20250317201957461](./assets/image-20250317201957461.png)
 
 
 

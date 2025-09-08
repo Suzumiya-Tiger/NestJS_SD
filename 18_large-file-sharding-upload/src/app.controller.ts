@@ -13,7 +13,7 @@ import * as fs from 'fs';
 @Controller()
 // ... existing code ...
 export class AppController {
-  constructor(private readonly appService: AppService) {}
+  constructor(private readonly appService: AppService) { }
 
   @Get()
   getHello(): string {

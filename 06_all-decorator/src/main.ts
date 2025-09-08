@@ -8,12 +8,12 @@ async function bootstrap() {
   app.use(
     session({
       secret: process.env.SESSION_SECRET || 'default_secret_for_development',
-      resave: false,
-      saveUninitialized: true,
+      resave: false, // 不强制保存未修改的 session
+      saveUninitialized: true, // 保存新的空 session
       cookie: {
-        maxAge: 1000 * 60 * 60 * 24 * 30,
-        httpOnly: true,
-        secure: false,
+        maxAge: 1000 * 60 * 60 * 24 * 30, // 30天过期
+        httpOnly: true, // 只能服务器访问，防止 XSS
+        secure: false, // HTTP 也可以用（开发环境）
       },
     }),
   );

@@ -1,454 +1,275 @@
-# ExecutionContext:切换上下文
+## ExecutionContext 的本质
 
-我们还是从创建一个filter过滤器入手:
-```ts
-import { ArgumentsHost, Catch, ExceptionFilter } from '@nestjs/common';
-import { AaaException } from './AaaException';
+`ExecutionContext` 是一个抽象的执行上下文对象，它封装了当前请求的所有相关信息，并提供统一的 API 来访问不同类型的上下文（HTTP、WebSocket、RPC 等）。
 
-@Catch(AaaException)
-export class AaaFilter implements ExceptionFilter {
-  catch(exception: AaaException, host: ArgumentsHost) {
-    console.log('expection', exception);
-    console.log('host', host);
-  }
-}
+## 在你的代码中的具体应用
 
-```
-
-创建一个expection供filter调用:
-```ts
-export class AaaException {
-  constructor(
-    public aaa: string,
-    public bbb: string,
-  ) {}
-}
-
-```
-
-## 在controller自定义Exception
-
-### 1. 为什么要自定义 Exception？
-
-1. 更精确的错误处理
-
-- 可以定义特定业务场景的错误类型
-
-- 便于区分不同类型的错误
-
-- 可以携带特定的错误信息和数据
-
-1. 更好的代码可维护性
-
-- 通过异常名称就能明确错误类型
-
-- 便于统一处理特定类型的错误
-
-- 提高代码的可读性
-
-1. 统一的错误处理机制
-
-- 可以为特定异常定制专门的处理逻辑
-
-- 便于统一错误返回格式
-
-- 方便进行错误日志记录
-
-### 2. 实际应用示例
+### 1. Guard 中的使用 (aaa.guard.ts)
 
 ```typescript
-// 1. 定义不同类型的自定义异常
-export class UserNotFoundException extends Error {
-  constructor(
-    public userId: string,
-    public message: string = `User ${userId} not found`
-  ) {
-    super(message);
-    this.name = 'UserNotFoundException';
+canActivate(context: ExecutionContext): boolean {
+  // 获取方法装饰器的元数据
+  const requiredRoles = this.reflector.get<Role[]>('roles', context.getHandler());
+  
+  // 如果没有角色要求，直接通过
+  if (!requiredRoles) {
+    return true;
   }
+  
+  // 切换到 HTTP 上下文，获取请求对象
+  const { user } = context.switchToHttp().getRequest();
+  
+  // 验证用户角色
+  return requiredRoles.some(role => 
+    user && (user as { roles?: Role[] }).roles?.includes(role)
+  ) || false;
 }
+```
 
-export class InvalidPasswordException extends Error {
-  constructor(
-    public message: string = 'Invalid password provided'
-  ) {
-    super(message);
-    this.name = 'InvalidPasswordException';
-  }
-}
+这里 `ExecutionContext` 的作用：
 
-// 2. 在业务逻辑中使用
-class UserService {
-  async findUser(id: string) {
-    const user = await this.userRepository.findOne(id);
-    if (!user) {
-      throw new UserNotFoundException(id);
-    }
-    return user;
-  }
+- **元数据获取**：`context.getHandler()` 获取当前处理器方法的引用
+- **上下文切换**：`context.switchToHttp()` 将通用上下文转换为 HTTP 特定上下文
+- **请求数据访问**：通过 HTTP 上下文获取 request 对象和用户信息
 
-  async login(username: string, password: string) {
-    const user = await this.findUser(username);
-    if (!this.validatePassword(password)) {
-      throw new InvalidPasswordException();
-    }
-    return user;
-  }
-}
+### 2. Filter 中的使用 (aaa.filter.ts)
 
-// 3. 异常过滤器处理不同类型的异常
-@Catch(UserNotFoundException, InvalidPasswordException)
-export class UserExceptionFilter implements ExceptionFilter {
-  catch(exception: Error, host: ArgumentsHost) {
-     // Nest.js 会自动将捕获的异常注入到这里
-    // exception 参数会是 UserNotFoundException 或 InvalidPasswordException 的实例
+```typescript
+catch(exception: AaaException, host: ArgumentsHost) {
+  if (host.getType() === 'http') {
     const ctx = host.switchToHttp();
-    const response = ctx.getResponse();
+    const response = ctx.getResponse<Response>();
+    const request = ctx.getRequest<Request>();
     
-    let status = 500;
-    let message = 'Internal server error';
-    
-    if (exception instanceof UserNotFoundException) {
-      status = 404;
-      message = exception.message;
-    } else if (exception instanceof InvalidPasswordException) {
-      status = 401;
-      message = exception.message;
-    }
-
-    response.status(status).json({
-      statusCode: status,
-      message: message,
+    response.status(500).json({
+      errCode: exception.errorCode,
+      errMessage: exception.errorMessage,
+      path: request.url,
       timestamp: new Date().toISOString(),
     });
   }
 }
 ```
 
-Nest.js 在UserExceptionFilter的异常处理机制：
+这里 `ArgumentsHost`（ExecutionContext 的父类）的作用：
 
-- Nest.js 检测到抛出的异常
+- **上下文类型检测**：`host.getType()` 判断是否为 HTTP 请求
+- **响应对象获取**：用于发送错误响应
+- **请求信息提取**：获取请求路径等信息用于错误日志
 
-- 查找可以处理这个异常的过滤器
+## ExecutionContext 的核心方法
 
-- 通过 @Catch() 装饰器确定哪个过滤器可以处理这个异常类型
-
-- 自动将异常实例注入到对应过滤器的 catch 方法中
-
-@Catch() 的灵活性：
-
-```ts
-// 基础异常类
-export class BaseException extends Error {
-  constructor(message: string) {
-    super(message);
-  }
-}
-
-// 派生异常类
-export class UserException extends BaseException {
-  constructor(message: string) {
-    super(message);
-  }
-}
-
-// 如果使用 @Catch(BaseException)，会捕获 BaseException 及其所有子类
-```
-
-
-
-### 3. 自定义异常的好处
-
-1. 错误分类更清晰
-
-```javascript
-// 可以根据业务领域定义不同的异常
-export class OrderException extends Error {
-  constructor(
-    public orderId: string,
-    public errorCode: string,
-    message: string
-  ) {
-    super(message);
-    this.name = 'OrderException';
-  }
-}
-
-export class PaymentException extends Error {
-  constructor(
-    public transactionId: string,
-    public amount: number,
-    message: string
-  ) {
-    super(message);
-    this.name = 'PaymentException';
-  }
-}
-```
-
-2. 错误处理更精确
+### 1. 上下文切换方法
 
 ```typescript
-@Catch()
-export class GlobalExceptionFilter implements ExceptionFilter {
-  catch(exception: unknown, host: ArgumentsHost) {
-    const ctx = host.switchToHttp();
-    const response = ctx.getResponse();
+// 切换到 HTTP 上下文
+context.switchToHttp()
 
-    if (exception instanceof OrderException) {
-      // 处理订单相关错误
-      response.status(400).json({
-        type: 'ORDER_ERROR',
-        orderId: exception.orderId,
-        code: exception.errorCode,
-        message: exception.message
-      });
-    } else if (exception instanceof PaymentException) {
-      // 处理支付相关错误
-      response.status(402).json({
-        type: 'PAYMENT_ERROR',
-        transactionId: exception.transactionId,
-        amount: exception.amount,
-        message: exception.message
-      });
-    }
-  }
-}
+// 切换到 WebSocket 上下文  
+context.switchToWs()
+
+// 切换到 RPC 上下文
+context.switchToRpc()
 ```
 
-3. 便于错误追踪和日志记录
+### 2. 元数据访问方法
 
 ```typescript
-@Catch()
-export class LoggingExceptionFilter implements ExceptionFilter {
-  constructor(private logger: Logger) {}
+// 获取处理器方法引用
+context.getHandler()
 
-  catch(exception: unknown, host: ArgumentsHost) {
-    if (exception instanceof UserNotFoundException) {
-      this.logger.warn(`User not found: ${exception.userId}`);
-    } else if (exception instanceof PaymentException) {
-      this.logger.error(`Payment failed for transaction: ${exception.transactionId}`);
-    }
-    // 继续向上抛出异常
-    throw exception;
-  }
-}
+// 获取控制器类引用
+context.getClass()
+
+// 获取上下文类型
+context.getType()
 ```
 
+## 执行流程分析
 
+根据你的代码，执行流程如下：
 
-## host方法介绍
+1. **请求到达**：用户访问 `GET /` 路由
 
-```javascript
-import { ArgumentsHost, Catch, ExceptionFilter } from '@nestjs/common';
-import { AaaException } from './AaaException';
+2. Guard 执行
 
-@Catch(AaaException)
-export class AaaFilter implements ExceptionFilter {
-  catch(exception: AaaException, host: ArgumentsHost) {
-  host;
-  }
-}
+   ```typescript
+   // AaaGuard 通过 ExecutionContext 检查权限
+   const requiredRoles = this.reflector.get<Role[]>('roles', context.getHandler());
+   // 获取 @Roles(Role.Admin) 装饰器设置的角色要求
+   ```
 
-```
+3. **权限验证失败**：由于没有用户信息，Guard 应该返回 false
 
-调用host.switchToHttp()方法会有以下子属性供选择:
+4. **异常抛出**：Controller 中抛出 `AaaException`
 
-![img](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/2cc5c684064b433db5786b18c9d31841~tplv-k3u1fbpfcp-jj-mark:3024:0:0:0:q75.awebp)
+5. Filter 捕获
 
-我们需要先调用switchToHttp切换到http上下文，然后再调用getRequest,getResponse方法。
+   ```typescript
+   // AaaFilter 通过 ArgumentsHost 处理异常
+   const response = ctx.getResponse<Response>();
+   // 返回格式化的错误响应
+   ```
 
-如果是 websocket、基于 tcp 的微服务等上下文，就分别调用 host.swtichToWs、host.switchToRpc 方法。
+## ExecutionContext 的设计优势
 
-这样，就可以在 filter 里处理多个上下文的逻辑，跨上下文复用 filter了。
+### 1. 统一抽象
 
+不管是 HTTP、WebSocket 还是 RPC，都提供统一的上下文访问方式。
 
-
-在controller里面，host用于切换http,websocket,rpc等上下文类型的，可以根据上下文类型获取到对应的argument，让Exception Filter等在不同的上下文中复用。
-
-
-
-
-
-## 在Guard中自定义ExecutionContext
-
-
-
-![img](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/6037df49c67f4984bcb038a2a7d91cb4~tplv-k3u1fbpfcp-jj-mark:3024:0:0:0:q75.awebp)
-
-没错，ExecutionContext 是 ArgumentHost 的子类，扩展了 getClass、getHandler 方法。
-
-![img](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/70d4b54f55ec4bc188324284367baa79~tplv-k3u1fbpfcp-jj-mark:3024:0:0:0:q75.awebp#?w=758&h=492&s=47151&e=png&b=ffffff)
-
-可以通过调试来打印context.getClass()和context.getHandler()看下他们具体是啥:
-![image-20250320232050639](/Users/heinrichhu/前端项目/NestJS_SD/08_argument-host/assets/image-20250320232050639.png)
-
-
-
-会发现这俩货分别是controller和里面的handler。
-
-为什么ExcutionContext里面需要拿到目标class和handler呢？
-
-因为Guard、Interceptor的逻辑就是需要根据目标class、handler有没有某些装饰器来决定如何处理。
+### 2. 类型安全
 
 ```typescript
-export enum Role {
-  Admin = 'admin',
-  User = 'user',
-}
-
+// HTTP 上下文有类型提示
+const httpContext = context.switchToHttp();
+const request = httpContext.getRequest<Request>();
+const response = httpContext.getResponse<Response>();
 ```
 
+### 3. 元数据支持
 
+可以轻松访问装饰器设置的元数据，实现声明式编程。
 
-```javascript
-import { SetMetadata } from '@nestjs/common';
-import { Role } from './role';
+## 实际应用场景
 
+在你的代码中，`ExecutionContext` 实现了：
+
+- **角色权限控制**：Guard 通过上下文获取用户信息和权限要求
+- **统一异常处理**：Filter 通过上下文获取请求响应对象，返回标准化错误
+- **元数据驱动**：通过 `@Roles` 装饰器声明权限要求，Guard 自动读取并验证
+
+这种设计使得权限控制、异常处理等横切关注点可以以声明式、可复用的方式实现，提高了代码的可维护性和可测试性。
+
+### 运行时执行顺序
+
+但在实际请求处理时，执行顺序是固定的：
+
+```tcl
+请求进入
+    ↓
+1. Guards 执行 (AaaGuard)
+    ↓
+2. 读取 @Roles 元数据进行权限检查
+    ↓  
+3. Controller 方法执行 (getHello)
+    ↓
+4. 抛出异常 (AaaException)
+    ↓
+5. Exception Filters 捕获 (AaaFilter)
+    ↓
+返回响应
+```
+
+```tcl
+@Get()                    // 3. 第三个被 TypeScript 处理
+@UseFilters(AaaFilter)    // 2. 第二个被 TypeScript 处理  
+@UseGuards(AaaGuard)      // 1. 第一个被 TypeScript 处理
+@Roles(Role.Admin)        // 0. 最先被 TypeScript 处理（最接近方法）
+getHello(): string {}
+```
+
+### 关键点：元数据立即存储
+
+当 `@Roles(Role.Admin)` 装饰器被应用时，它立即将元数据存储到方法上：
+
+```typescript
+// roles.decorator.ts
 export const Roles = (...roles: Role[]) => SetMetadata('roles', roles);
 
+// 这行代码在编译时就执行了，元数据已经存储
 ```
 
+## 运行时元数据读取
 
-
-在controller里面定义这个@Roles自定义decorator，然后我们就可以在@UseGuard去使用这个注入的具体的Role的枚举类型:
+当请求到来时，Guard 执行：
 
 ```typescript
-@Controller()
-export class AppController {
-  constructor(private readonly appService: AppService) {}
-
-  @Get()
-  @UseFilters(AaaFilter)
-  @UseGuards(AaaGuard)
-  @Roles(Role.Admin)
-  getHello(): string {
-    throw new AaaException('aaa', 'bbb');
-    return this.appService.getHello();
-  }
+// aaa.guard.ts
+canActivate(context: ExecutionContext): boolean {
+  // 这时候从已存储的元数据中读取
+  const requiredRoles = this.reflector.get<Role[]>(
+    'roles',                    // 读取 key 为 'roles' 的元数据
+    context.getHandler()        // 从目标方法读取
+  );
+  // 此时 requiredRoles = [Role.Admin]，因为元数据早就存储了
 }
-
 ```
 
-然后我们就在Guard里面大显神通了:
+## 时间线对比
+
+### 编译时（装饰器应用）
+
+```
+1. @Roles 执行 → 存储元数据 { roles: [Role.Admin] } 到方法
+2. @UseGuards 执行 → 注册 Guard
+3. @UseFilters 执行 → 注册 Filter  
+4. @Get 执行 → 注册路由
+```
+
+### 运行时（请求处理）
+
+```
+1. Guard 执行 → 读取已存储的元数据
+2. Controller 方法执行
+3. Filter 处理异常（如果有）
+```
+
+## 具体分析你的代码
+
+### 执行流程：
+
+1. AaaGuard 执行
+
+   ```typescript
+   // Guard 会读取 @Roles(Role.Admin) 的元数据
+   const requiredRoles = this.reflector.get<Role[]>('roles', context.getHandler());
+   // 检查用户是否有 Admin 角色
+   ```
+
+2. **权限检查失败**： 由于没有用户信息，Guard 返回 false，NestJS 会抛出 `ForbiddenException`
+
+3. **AaaFilter 不会捕获**： 因为 `AaaFilter` 只捕获 `AaaException`，而不会捕获 `ForbiddenException`
+
+### 实际问题
+
+你的代码有个逻辑问题：
+
 ```typescript
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
-import { Observable } from 'rxjs';
-import { Role } from './role';
+@UseFilters(AaaFilter)  // 只捕获 AaaException
+@UseGuards(AaaGuard)    // 会抛出 ForbiddenException
+```
 
-@Injectable()
-export class AaaGuard implements CanActivate {
-  constructor(private reflector: Reflector) {}
-  canActivate(
-    context: ExecutionContext,
-  ): boolean | Promise<boolean> | Observable<boolean> {
-    const requiredRoles = this.reflector.get<Role[]>(
-      'roles',
-      context.getHandler(),
-    );
-    if (!requiredRoles) {
-      return true;
-    }
-    const { user } = context.switchToHttp().getRequest();
-    return (
-      requiredRoles.some(
-        (role) => user && (user as { roles?: Role[] }).roles?.includes(role),
-      ) || false
-    );
-  }
+Guard 失败时抛出的 `ForbiddenException` 不会被 `AaaFilter` 捕获。
+
+## 正确的执行验证
+
+你可以这样测试：
+
+### 1. 修改 Guard 让它通过：
+
+```typescript
+canActivate(context: ExecutionContext): boolean {
+  // 临时让 Guard 总是通过
+  return true;
 }
-
 ```
 
+### 2. 或者修改 Filter 捕获所有异常：
 
-
-这里就是通过context(需要定义ExecutionContext)的getHandler方法先拿到目标handler的方法。
-再通过reflector的api来拿到它的metaData。
-
-判定有没有获取到对应的角色，如果没有就说明无需验证，跳过。
-
-如果有那就要获取权限，从user的roles中判断下当前有没有比对下有没有dangqianrole，有的话就可以放行了。
-
-```javascript
-    const { user } = context.switchToHttp().getRequest();
-```
-
-在 NestJS 中，用户认证通常使用 @nestjs/passport 和 passport-jwt 等策略。当用户登录后，**Passport 会解析请求中的 JWT 并将用户信息存入 request.user**。
-
-假设你在 auth.module.ts 里使用了 passport-jwt：
-
-```javascript
-import { PassportStrategy } from '@nestjs/passport';
-import { Strategy, ExtractJwt } from 'passport-jwt';
-
-@Injectable()
-export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor() {
-    super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      secretOrKey: 'your_secret_key', // 你的 JWT 密钥
-    });
-  }
-
-  async validate(payload: any) {
-    return { userId: payload.sub, roles: payload.roles }; // 这里返回的对象会被放入 `request.user`
+```typescript
+@Catch() // 捕获所有异常，而不只是 AaaException
+export class AaaFilter implements ExceptionFilter {
+  catch(exception: any, host: ArgumentsHost) {
+    // 处理所有类型的异常
   }
 }
 ```
 
-在 AuthGuard 执行 validate() 之后，request.user 就会被填充：
+## 关键点总结
 
-```javascript
-const { user } = context.switchToHttp().getRequest();
-console.log(user); // { userId: 123, roles: ['admin'] }
-```
+- **装饰器应用**：从下往上
+- **运行时执行**：Guard → Controller → Filter（如果有异常）
+- **元数据读取**：Guard 可以读取同一方法上的其他装饰器的元数据
+- **异常传播**：只有匹配的 Filter 才会捕获对应的异常类型
 
-
-
-# 总结
-
-为了让 Filter、Guard、Exception Filter 支持 http、ws、rpc 等场景下复用，Nest 设计了 ArgumentHost 和 ExecutionContext 类。
-
-ArgumentHost 可以通过 getArgs 或者 getArgByIndex 拿到上下文参数，比如 request、response、next 等。
-
-更推荐的方式是根据 getType 的结果分别 switchToHttp、switchToWs、swtichToRpc，然后再取对应的 argument。
-
-而 ExecutionContext 还提供 getClass、getHandler 方法，可以结合 reflector 来取出其中的 metadata。
-
-在写 Filter、Guard、Exception Filter 的时候，是需要用到这些 api 的。
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+所以你的理解需要修正：不是装饰器从下往上执行，而是它们在编译时从下往上应用，在运行时按照 NestJS 的固定管道顺序执行。

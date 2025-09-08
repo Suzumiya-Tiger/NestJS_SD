@@ -19,12 +19,13 @@ import {
   FileInterceptor,
   FilesInterceptor,
 } from '@nestjs/platform-express';
+import * as fs from 'fs';
 import { storage } from './utils/storage';
 import { FileSizeValidationPipePipe } from './file-size-validation-pipe.pipe';
 
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {}
+  constructor(private readonly appService: AppService) { }
 
   @Get()
   getHello(): string {
@@ -112,23 +113,30 @@ export class AppController {
   UploadedFile3(
     @UploadedFile(
       new ParseFilePipe({
+        // 自定义失败返回的错误信息和状态码
         exceptionFactory: (error) => {
           return new HttpException(
-            '出现错误' + error,
-            HttpStatus.INTERNAL_SERVER_ERROR,
+            '文件验证失败: ' + error,
+            HttpStatus.BAD_REQUEST, // 改为 400 而不是 500
           );
         },
         validators: [
-          new MaxFileSizeValidator({ maxSize: 1000 }),
-          new FileTypeValidator({ fileType: 'image/jpeg' }),
+          new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 }), // 5MB 而不是 1KB
+          new FileTypeValidator({ fileType: /image\/(jpeg|jpg|png|gif)/ }), // 支持多种图片格式
         ],
       }),
     )
     file: Express.Multer.File,
     @Body() body,
   ) {
-    console.log('file', file);
-    console.log('body', body);
-    return 'success';
+    try {
+      console.log('file', file);
+      console.log('body', body);
+      return 'success';
+    } catch (error) {
+      // 验证失败时删除文件
+      fs.unlinkSync(file.path);
+      throw error;
+    }
   }
 }

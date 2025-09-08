@@ -9,7 +9,7 @@ import { AppService } from './app.service';
 
 @Injectable()
 export class AaaInterceptor implements NestInterceptor {
-  constructor(private appService: AppService) {}
+  constructor(private appService: AppService) { }
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     console.log(this.appService.getHello());
     const now = Date.now();

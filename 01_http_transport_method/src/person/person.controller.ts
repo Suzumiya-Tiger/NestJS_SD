@@ -17,7 +17,7 @@ import { AnyFilesInterceptor } from '@nestjs/platform-express';
 
 @Controller('api/person')
 export class PersonController {
-  constructor(private readonly personService: PersonService) {}
+  constructor(private readonly personService: PersonService) { }
 
   @Post()
   create(@Body() createPersonDto: CreatePersonDto) {
@@ -58,8 +58,21 @@ export class PersonController {
     @Body() createPersonDto: CreatePersonDto,
     @UploadedFiles() files: Array<Express.Multer.File>,
   ) {
-    console.log(files);
-    return `received:${JSON.stringify(createPersonDto)}`;
+    console.log('=== 接收的普通数据 ===');
+    console.log('Name:', createPersonDto.name); // '光'
+    console.log('Age:', createPersonDto.age); // 20
+
+    console.log('=== 接收的文件数据 ===');
+    console.log('文件数量:', files.length); // 2
+    files.forEach((file, index) => {
+      console.log(`文件${index + 1}:`, {
+        字段名: file.fieldname, // file1, file2
+        原始名: file.originalname,
+        大小: file.size,
+      });
+    });
+
+    return `received: ${JSON.stringify(createPersonDto)}`;
   }
 
   @Patch(':id')

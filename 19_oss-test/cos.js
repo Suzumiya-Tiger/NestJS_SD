@@ -17,7 +17,7 @@ const config = {
     durationSeconds: 1800,
     bucket: '',
     region: '',
-    allowPrefix: '*' // 使用通配符存在安全风险，建议根据实际需求设置
+    allowPrefix: 'uploads/' // 限制只能上传到 uploads 目录
 };
 
 // 生成策略

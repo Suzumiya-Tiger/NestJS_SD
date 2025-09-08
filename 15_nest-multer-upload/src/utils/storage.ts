@@ -4,13 +4,16 @@ import * as path from 'path';
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
+    const uploadPath = path.join(process.cwd(), 'my-uploads');
+
     try {
-      fs.mkdirSync(path.join(process.cwd(), 'my-uploads'));
+      // 使用 recursive: true 选项，如果目录已存在则不会报错
+      fs.mkdirSync(uploadPath, { recursive: true });
     } catch (e: any) {
-      console.log(e);
+      console.log('创建目录时出错:', e);
     }
 
-    cb(null, path.join(process.cwd(), 'my-uploads'));
+    cb(null, uploadPath);
   },
   filename: function (req, file, cb) {
     const uniqueSuffix =

@@ -1,95 +1,105 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <script src="https://unpkg.com/axios@0.24.0/dist/axios.min.js"></script>
+  </head>
 
-<head>
-  <meta charset="UTF-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Document</title>
-  <script src="https://unpkg.com/axios@0.24.0/dist/axios.min.js"></script>
-</head>
+  <body>
+    <input id="fileInput" type="file" multiple />
+    <script>
+      const fileInput = document.querySelector('#fileInput');
 
-<body>
-  <input id="fileInput" type="file" multiple />
-  <script>
-    const fileInput = document.querySelector('#fileInput');
+      // 定义每个分片的大小 (20KB)
+      const chunkSize = 20 * 1024;
 
-    // 定义每个分片的大小 (20KB)
-    const chunkSize = 20 * 1024;
+      // 当用户选择文件后触发此函数
+      fileInput.onchange = async function () {
+        // 获取用户选择的第一个文件
+        const file = fileInput.files[0];
+        console.log('file', file);
 
-    // 当用户选择文件后触发此函数
-    fileInput.onchange = async function () {
-      // 获取用户选择的第一个文件
-      const file = fileInput.files[0];
-      console.log('file', file);
+        const chunks = []; // 用于存储所有文件分片
+        let startPos = 0; // 当前分片的起始位置
+        // 循环切割文件，直到所有部分都被处理
+        while (startPos < file.size) {
+          // 从文件中截取一个分片
+          chunks.push(file.slice(startPos, startPos + chunkSize));
+          // 更新下一个分片的起始位置
+          startPos += chunkSize;
+        }
+        // 生成一个随机字符串，用于唯一标识本次上传
+        const randomStr = Math.random().toString().slice(2, 8);
+        // 构造分片的基础文件名 (例如: "randomStr-originalFileName.jpg")
+        const fileNameForChunks = `${randomStr}-${file.name}`;
+        // tasks 数组用于存储每个分片上传操作的 Promise
+        const tasks = [];
 
-      const chunks = [] // 用于存储所有文件分片
-      let startPos = 0  // 当前分片的起始位置
-      // 循环切割文件，直到所有部分都被处理
-      while (startPos < file.size) {
-        // 从文件中截取一个分片
-        chunks.push(file.slice(startPos, startPos + chunkSize))
-        // 更新下一个分片的起始位置
-        startPos += chunkSize
-      }
-      // 生成一个随机字符串，用于唯一标识本次上传
-      const randomStr = Math.random().toString().slice(2, 8)
-      // 构造分片的基础文件名 (例如: "randomStr-originalFileName.jpg")
-      const fileNameForChunks = `${randomStr}-${file.name}`;
-      // tasks 数组用于存储每个分片上传操作的 Promise
-      const tasks = [];
+        // 遍历所有分片，为每个分片创建一个上传任务
+        chunks.forEach((chunk, index) => {
+          // 将一个立即执行的异步函数推入 tasks 数组
+          // 这个异步函数负责单个分片的上传，包含重试逻辑
+          tasks.push(
+            (async () => {
+              // 创建 FormData 对象，用于构建发送到服务器的数据
+              const data = new FormData();
+              // 设置分片的唯一名称 (例如: "randomStr-originalFileName.jpg-0")
+              data.set('name', `${fileNameForChunks}-${index}`);
+              // 将分片数据添加到 FormData 中
+              data.append('files', chunk);
 
-      // 遍历所有分片，为每个分片创建一个上传任务
-      chunks.forEach((chunk, index) => {
-        // 将一个立即执行的异步函数推入 tasks 数组
-        // 这个异步函数负责单个分片的上传，包含重试逻辑
-        tasks.push((async () => {
-          // 创建 FormData 对象，用于构建发送到服务器的数据
-          const data = new FormData();
-          // 设置分片的唯一名称 (例如: "randomStr-originalFileName.jpg-0")
-          data.set('name', `${fileNameForChunks}-${index}`);
-          // 将分片数据添加到 FormData 中
-          data.append('files', chunk);
-
-          let retries = 3; // 初始化重试次数
-          // 当还有重试次数时，尝试上传
-          while (retries > 0) {
-            try {
-              console.log(`Attempting to upload chunk ${index}, retries left: ${retries}`);
-              // 发起 POST 请求到 /upload接口，上传当前分片
-              const res = await axios.post('http://localhost:3000/upload', data);
-              console.log(`Chunk ${index} uploaded successfully`);
-              // 如果上传成功，返回响应并终止此分片的上传尝试 (退出 while 循环)
-              return res;
-            } catch (error) {
-              retries--; // 上传失败，减少重试次数
-              console.error(`Chunk ${index} upload failed. Error: ${error.message}. Retries left: ${retries}`);
-              // 如果重试次数耗尽，抛出错误，这将导致此分片的 Promise 被 reject
-              if (retries === 0) {
-                throw new Error(`Chunk ${index} failed to upload`);
+              let retries = 3; // 初始化重试次数
+              // 当还有重试次数时，尝试上传
+              while (retries > 0) {
+                try {
+                  console.log(
+                    `Attempting to upload chunk ${index}, retries left: ${retries}`,
+                  );
+                  // 发起 POST 请求到 /upload接口，上传当前分片
+                  const res = await axios.post(
+                    'http://localhost:3000/upload',
+                    data,
+                  );
+                  console.log(`Chunk ${index} uploaded successfully`);
+                  // 如果上传成功，返回响应并终止此分片的上传尝试 (退出 while 循环)
+                  return res;
+                } catch (error) {
+                  retries--; // 上传失败，减少重试次数
+                  console.error(
+                    `Chunk ${index} upload failed. Error: ${error.message}. Retries left: ${retries}`,
+                  );
+                  // 如果重试次数耗尽，抛出错误，这将导致此分片的 Promise 被 reject
+                  if (retries === 0) {
+                    throw new Error(`Chunk ${index} failed to upload`);
+                  }
+                  // 等待1秒后重试
+                  await new Promise((resolve) => setTimeout(resolve, 1000));
+                }
               }
-              // 等待1秒后重试
-              await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-          }
-        })());
-      });
+            })(),
+          );
+        });
 
-      try {
-        // 打印所有待处理的上传任务 (Promise 列表)
-        // console.log('tasks', tasks);
+        try {
+          // 打印所有待处理的上传任务 (Promise 列表)
+          // console.log('tasks', tasks);
 
-        // 等待所有分片上传任务完成 (即 tasks 数组中的所有 Promise 都 resolved)
-        const results = await Promise.all(tasks);
-        console.log('All chunks processed successfully:', results);
-        // 所有分片上传成功后，向 /merge 接口发送 GET 请求，通知服务器合并文件
-        axios.get('http://localhost:3000/merge?name=' + fileNameForChunks);
-      } catch (error) {
-        // 如果任何一个分片上传最终失败 (Promise.all 会 reject)，则捕获错误
-        console.error('An error occurred during chunk uploads:', error.message);
-      }
-    }
-  </script>
-</body>
-
+          // 等待所有分片上传任务完成 (即 tasks 数组中的所有 Promise 都 resolved)
+          const results = await Promise.all(tasks);
+          console.log('All chunks processed successfully:', results);
+          // 所有分片上传成功后，向 /merge 接口发送 GET 请求，通知服务器合并文件
+          axios.get('http://localhost:3000/merge?name=' + fileNameForChunks);
+        } catch (error) {
+          // 如果任何一个分片上传最终失败 (Promise.all 会 reject)，则捕获错误
+          console.error(
+            'An error occurred during chunk uploads:',
+            error.message,
+          );
+        }
+      };
+    </script>
+  </body>
 </html>

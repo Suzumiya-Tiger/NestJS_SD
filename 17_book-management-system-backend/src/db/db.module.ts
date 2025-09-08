@@ -7,15 +7,15 @@ export interface DbModuleOptions {
 export class DbModule {
   static register(options: DbModuleOptions): DynamicModule {
     return {
-      module: DbModule,
+      module: DbModule, // 模块类
       providers: [
         {
-          provide: 'OPTIONS',
-          useValue: options,
+          provide: 'OPTIONS', // 将参数注册为 provider
+          useValue: options, // options = { path: 'user.json' }
         },
-        DbService,
+        DbService, // 业务服务
       ],
-      exports: [DbService],
+      exports: [DbService], // 导出给其他模块使用
     };
   }
 }

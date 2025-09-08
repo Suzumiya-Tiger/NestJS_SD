@@ -12,11 +12,9 @@
 
 ### 两个参数的含义
 
-typescript
-
-Apply to app.controll...
-
+```typescript
 @SetMetadata(key: string, value: any)
+```
 
 1. 第一个参数 key：元数据的键名，例如 'roles'，相当于一个命名空间或标识符
 

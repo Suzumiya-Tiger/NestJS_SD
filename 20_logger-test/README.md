@@ -1,7 +1,5 @@
 # 日志记录
 
-main.ts
-
 ```typescript
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
