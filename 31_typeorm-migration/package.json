@@ -1,0 +1,27 @@
+{
+   "name": "31_typeorm-migration",
+   "version": "0.0.1",
+   "description": "Awesome project developed with TypeORM.",
+   "type": "commonjs",
+   "devDependencies": {
+      "@types/node": "^22.13.10",
+      "ts-node": "^10.9.2",
+      "typescript": "^5.8.2"
+   },
+   "dependencies": {
+      "mysql2": "^3.14.5",
+      "reflect-metadata": "^0.2.2",
+      "typeorm": "0.3.26"
+   },
+   "scripts": {
+    "start": "nest start",
+    "start:dev": "nest start --watch",
+    "start:debug": "nest start --debug --watch",
+    "start:prod": "node dist/main",
+      "typeorm": "typeorm-ts-node-commonjs",
+      "migration:create": "npx ts-node ./node_modules/typeorm/cli migration:create",
+      "migration:generate": "npx ts-node ./node_modules/typeorm/cli migration:generate -d src/data-source.ts",
+      "migration:run": "npx ts-node ./node_modules/typeorm/cli migration:run -d src/data-source.ts",
+      "migration:revert": "npx ts-node ./node_modules/typeorm/cli migration:revert -d src/data-source.ts"
+   }
+}
